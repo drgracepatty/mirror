@@ -1,29 +1,38 @@
 export default async function handler(req, res) {
+  console.log("📥 Request received");
+
   if (req.method !== "POST") {
+    console.log("❌ Invalid request method");
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
   if (!process.env.OPENAI_API_KEY) {
+    console.log("❌ Missing OpenAI API key");
     return res.status(500).json({ feedback: "Missing OpenAI API key." });
   }
 
   const { situation, response } = req.body;
 
   if (!situation || !response) {
+    console.log("❌ Missing input fields");
     return res.status(400).json({ feedback: "Missing situation or response." });
   }
 
   const prompt = `
-Hi. Will you respond to these as a psychotherapist would, offering insights and critiques based on the following situation and response?
+Hi. Please respond as a compassionate psychotherapist would, offering thoughtful insights into the mindset shown below.
 
 Situation:
 ${situation}
 
 Response:
 ${response}
+
+Give a brief, therapist-style reflection or gentle critique to help the person reflect and grow.
 `.trim();
 
   try {
+    console.log("📡 Sending prompt to OpenAI...");
+
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -38,13 +47,13 @@ ${response}
     });
 
     const data = await openaiRes.json();
-    const output = data?.choices?.[0]?.message?.content?.trim() || "";
+    console.log("✅ OpenAI response received");
 
-    // ✅ This is what was missing:
+    const output = data?.choices?.[0]?.message?.content?.trim() || "⚠️ No feedback returned.";
     res.status(200).json({ feedback: output });
 
   } catch (err) {
-    console.error("OpenAI API error:", err);
+    console.error("🔥 Error from OpenAI:", err);
     res.status(500).json({ feedback: "Something went wrong. Please try again." });
   }
 }
