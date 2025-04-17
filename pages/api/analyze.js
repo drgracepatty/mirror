@@ -32,14 +32,6 @@ export default async function handler(req, res) {
     const data = await openaiRes.json();
     const output = data?.choices?.[0]?.message?.content?.trim() || "";
 
-    const scoreMatch = output.match(/Score[:\s]*([1-5])/i);
-    const feedbackMatch = output.match(/Feedback[:\s]*(.*)/is);
-
-    const score = scoreMatch ? parseInt(scoreMatch[1]) : "N/A";
-    const feedback = feedbackMatch ? feedbackMatch[1].trim() : output;
-
-    res.status(200).json({ score, feedback });
-
   } catch (err) {
     console.error("OpenAI API error:", err);
     res.status(500).json({ score: "N/A", feedback: "Something went wrong. Please try again." });
