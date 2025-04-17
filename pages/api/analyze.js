@@ -11,19 +11,9 @@ export default async function handler(req, res) {
   const { situation, response } = req.body;
 
   const prompt = `
-You are a cognitive therapist AI.
-
-Given the situation and gut reaction below, analyze the mindset.
-
-Only respond with the following format (exactly):
-
-Score: [1-5]
-Feedback: <your critique here>
-
------------------
-Situation: "${situation}"
-Response: "${response}"
-`.trim();
+  Hi.  Will you respond to these as a psychotherapist would, offering insights and critiques based on the following situation and response:
+  ${situation}
+  ${response}`
 
   try {
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
