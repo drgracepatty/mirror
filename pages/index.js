@@ -1,64 +1,66 @@
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
 
-import { useState, useEffect } from "react";
+  const apiKey = process.env.OPENAI_API_KEY;
 
-export default function Home() {
-  const [situation, setSituation] = useState("");
-  const [response, setResponse] = useState("");
-  const [result, setResult] = useState(null);
-  const [history, setHistory] = useState([]);
+  if (!apiKey) {
+    return res.status(500).json({ feedback: "Missing OpenAI API key." });
+  }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("reflectionHistory");
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
+  const { situation, response } = req.body;
 
-  useEffect(() => {
-    localStorage.setItem("reflectionHistory", JSON.stringify(history));
-  }, [history]);
+  if (!situation || !response) {
+    return res.status(400).json({ feedback: "Missing situation or response." });
+  }
 
-  const handleReflect = async () => {
-    const res = await fetch("/api/analyze", {
+  const prompt = `
+You are a compassionate psychotherapist.
+
+Please reflect on the following:
+
+Situation:
+${situation}
+
+Response:
+${response}
+
+Offer a gentle, insightful critique of the response from a mental health perspective. Keep it brief and supportive.
+`.trim();
+
+  try {
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ situation, response })
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+      }),
     });
-    const data = await res.json();
-    setResult(data);
-    setHistory([{ situation, response, ...data }, ...history]);
-  };
 
-  return (
-    <div style={{ fontFamily: "sans-serif", maxWidth: "700px", margin: "auto", padding: "2em" }}>
-      <h2>Mindset Mirror 🪞</h2>
-      <label>Situation:</label>
-      <textarea value={situation} onChange={(e) => setSituation(e.target.value)} rows="2" style={{ width: "100%" }} />
-      <label>Your Reaction:</label>
-      <textarea value={response} onChange={(e) => setResponse(e.target.value)} rows="3" style={{ width: "100%" }} />
-      <button onClick={handleReflect} style={{ marginTop: "1em" }}>Reflect</button>
+    const data = await openaiRes.json();
 
-      {result && (
-        <div style={{ marginTop: "2em", background: "#f0f0f0", padding: "1em", borderRadius: "8px" }}>
-          <h3>Feedback</h3>
-          <p><strong>Score:</strong> {result.score} / 5</p>
-          <p>{result.feedback}</p>
-        </div>
-      )}
+    // Handle OpenAI error response
+    if (data.error) {
+      console.error("OpenAI error:", data.error);
+      return res.status(500).json({ feedback: `OpenAI error: ${data.error.message}` });
+    }
 
-      {history.length > 0 && (
-        <div style={{ marginTop: "2em" }}>
-          <h4>Previous Reflections</h4>
-          <ul>
-            {history.map((entry, i) => (
-              <li key={i} style={{ marginBottom: "1em" }}>
-                <strong>Situation:</strong> {entry.situation}<br />
-                <strong>Response:</strong> {entry.response}<br />
-                <strong>Score:</strong> {entry.score}<br />
-                <em>{entry.feedback}</em>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
+    const output = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!output) {
+      return res.status(500).json({ feedback: "No response from GPT." });
+    }
+
+    res.status(200).json({ feedback: output });
+
+  } catch (err) {
+    console.error("Server error:", err);
+    res.status(500).json({ feedback: "Something went wrong. Please try again." });
+  }
 }
